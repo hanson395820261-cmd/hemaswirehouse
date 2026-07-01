@@ -43,12 +43,12 @@ CREATE INDEX IF NOT EXISTS idx_users_position_id ON users(position_id);
 
 -- 插入示例岗位（可选）
 INSERT INTO positions (name) VALUES 
-  ('产品经理'),
-  ('开发工程师'),
-  ('测试工程师'),
-  ('设计师'),
-  ('运营')
+  ('法务'),
+  ('厨师')
 ON CONFLICT (name) DO NOTHING;
+
+-- 删除不需要的预设岗位
+DELETE FROM positions WHERE name IN ('产品经理', '开发工程师', '测试工程师', '设计师', '运营');
 
 -- 创建更新 updated_at 的触发器函数
 CREATE OR REPLACE FUNCTION update_updated_at_column()

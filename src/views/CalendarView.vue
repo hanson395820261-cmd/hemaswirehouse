@@ -1,52 +1,68 @@
 <template>
   <div class="calendar-view">
-    <header>
-      <h1>📅 日历浏览</h1>
-      <button @click="router.push('/')" class="back-btn">← 返回</button>
+    <!-- 顶部标题栏 -->
+    <header class="header">
+      <div class="header-content">
+        <button @click="router.push('/')" class="back-btn">
+          返回
+        </button>
+        <h1 class="page-title">日历浏览</h1>
+      </div>
     </header>
 
-    <div class="calendar-nav">
-      <button @click="prevMonth" class="nav-btn">‹</button>
-      <h2>{{ currentYear }}年 {{ currentMonth + 1 }}月</h2>
-      <button @click="nextMonth" class="nav-btn">›</button>
-    </div>
-
-    <div class="calendar-grid">
-      <div class="weekday" v-for="day in weekdays" :key="day">{{ day }}</div>
-      <div 
-        v-for="(day, index) in calendarDays" 
-        :key="index"
-        :class="['calendar-day', { 
-          'other-month': !day.currentMonth,
-          'has-records': day.recordsCount > 0,
-          'selected': day.date === selectedDate
-        }]"
-        @click="selectDate(day)"
-      >
-        <span class="day-number">{{ day.day }}</span>
-        <span v-if="day.recordsCount > 0" class="records-badge">
-          {{ day.recordsCount }}
-        </span>
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- 日历导航 -->
+      <div class="calendar-nav">
+        <button @click="prevMonth" class="nav-btn">&lsaquo;</button>
+        <h2 class="month-title">{{ currentYear }}年{{ currentMonth + 1 }}月</h2>
+        <button @click="nextMonth" class="nav-btn">&rsaquo;</button>
       </div>
-    </div>
 
-    <div class="day-records" v-if="selectedDate">
-      <h3>{{ selectedDate }} 的记录</h3>
-      <div v-if="dayRecords.length === 0" class="empty">
-        这一天没有记录
-      </div>
-      <div 
-        v-for="record in dayRecords" 
-        :key="record.id"
-        class="record-card"
-      >
-        <div class="record-content">{{ record.content }}</div>
-        <div class="record-meta">
-          <span class="user">{{ record.users?.name }}</span>
-          <span class="time">{{ formatTime(record.created_at) }}</span>
+      <!-- 日历网格 -->
+      <div class="calendar-grid card">
+        <div class="weekday-header">
+          <div v-for="day in weekdays" :key="day" class="weekday">{{ day }}</div>
+        </div>
+        <div class="days-grid">
+          <div 
+            v-for="(day, index) in calendarDays" 
+            :key="index"
+            :class="['calendar-day', { 
+              'other-month': !day.currentMonth,
+              'has-records': day.recordsCount > 0,
+              'selected': day.date === selectedDate
+            }]"
+            @click="selectDate(day)"
+          >
+            <span class="day-number">{{ day.day }}</span>
+            <span v-if="day.recordsCount > 0" class="records-indicator">
+              {{ day.recordsCount }}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+
+      <!-- 选中日期的记录 -->
+      <div v-if="selectedDate" class="day-records">
+        <h3 class="section-title">{{ formatDateDisplay(selectedDate) }} 的记录</h3>
+        
+        <div v-if="dayRecords.length === 0" class="empty-state">
+          <p>这一天没有记录</p>
+        </div>
+        
+        <div 
+          v-for="record in dayRecords" 
+          :key="record.id"
+          class="record-card card"
+        >
+          <div class="record-content">{{ record.content }}</div>
+          <div class="record-meta">
+            <span class="record-time">{{ formatTime(record.created_at) }}</span>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 
@@ -60,6 +76,7 @@ const currentDate = ref(new Date())
 const selectedDate = ref('')
 const dayRecords = ref([])
 const recordsMap = ref({})
+const userId = ref(localStorage.getItem('userId') || '')
 
 const currentYear = computed(() => currentDate.value.getFullYear())
 const currentMonth = computed(() => currentDate.value.getMonth())
@@ -137,6 +154,7 @@ const loadMonthRecords = async () => {
   const { data, error } = await supabase
     .from('records')
     .select('record_date')
+    .eq('user_id', userId.value)
     .gte('record_date', startDate)
     .lte('record_date', endDate)
   
@@ -155,7 +173,8 @@ const loadMonthRecords = async () => {
 const loadDayRecords = async () => {
   const { data, error } = await supabase
     .from('records')
-    .select('*, users(name)')
+    .select('*')
+    .eq('user_id', userId.value)
     .eq('record_date', selectedDate.value)
     .order('created_at', { ascending: true })
   
@@ -173,6 +192,21 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`
 }
 
+const formatDateDisplay = (dateStr) => {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  
+  if (dateStr === today.toISOString().split('T')[0]) {
+    return '今天'
+  } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+    return '昨天'
+  } else {
+    return dateStr
+  }
+}
+
 const formatTime = (datetime) => {
   return new Date(datetime).toLocaleTimeString('zh-CN', { 
     hour: '2-digit', 
@@ -181,6 +215,11 @@ const formatTime = (datetime) => {
 }
 
 onMounted(() => {
+  if (!userId.value) {
+    router.push('/onboarding')
+    return
+  }
+  
   loadMonthRecords()
   selectedDate.value = formatDate(new Date())
   loadDayRecords()
@@ -189,178 +228,255 @@ onMounted(() => {
 
 <style scoped>
 .calendar-view {
+  min-height: 100vh;
+  background: var(--bg-page);
+}
+
+/* 顶部标题栏 */
+.header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
-}
-
-header {
+  padding: 20px 24px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-}
-
-header h1 {
-  margin: 0;
-  color: #333;
+  gap: 20px;
 }
 
 .back-btn {
-  padding: 10px 20px;
-  background: #f0f0f0;
-  border: none;
-  border-radius: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
 }
 
 .back-btn:hover {
-  background: #e0e0e0;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 主内容区 */
+.main-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+/* 日历导航 */
 .calendar-nav {
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 30px;
-  margin-bottom: 30px;
-}
-
-.calendar-nav h2 {
-  margin: 0;
-  color: #333;
-  min-width: 200px;
-  text-align: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 24px;
 }
 
 .nav-btn {
-  width: 40px;
-  height: 40px;
-  border: 2px solid #e0e0e0;
-  background: white;
-  border-radius: 50%;
-  font-size: 24px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  font-size: 20px;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
 }
 
 .nav-btn:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
+.month-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 160px;
+  text-align: center;
+}
+
+/* 日历网格 */
 .calendar-grid {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  padding: 20px;
+  margin-bottom: 32px;
+}
+
+.weekday-header {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 10px;
-  margin-bottom: 40px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .weekday {
   text-align: center;
+  font-size: 13px;
   font-weight: 600;
-  color: #666;
-  padding: 10px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+}
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
 }
 
 .calendar-day {
   aspect-ratio: 1;
-  border: 2px solid #f0f0f0;
-  border-radius: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
   position: relative;
+  gap: 4px;
 }
 
-.calendar-day:hover {
-  border-color: #667eea;
-  background: #f8f9ff;
+.calendar-day:hover:not(.other-month) {
+  background: var(--bg-input);
+}
+
+.calendar-day.selected {
+  background: var(--accent-light);
+  color: var(--accent-color);
+}
+
+.calendar-day.has-records .day-number {
+  font-weight: 600;
+  color: var(--accent-color);
 }
 
 .calendar-day.other-month {
   opacity: 0.3;
-}
-
-.calendar-day.selected {
-  border-color: #667eea;
-  background: #667eea;
-  color: white;
-}
-
-.calendar-day.has-records {
-  border-color: #667eea;
+  cursor: default;
 }
 
 .day-number {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
 }
 
-.records-badge {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  background: #667eea;
+.records-indicator {
+  font-size: 11px;
+  font-weight: 600;
   color: white;
+  background: var(--accent-color);
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.calendar-day.selected .records-badge {
-  background: white;
-  color: #667eea;
-}
-
+/* 记录列表 */
 .day-records {
-  background: white;
-  padding: 30px;
-  border-radius: 15px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin-top: 8px;
 }
 
-.day-records h3 {
-  margin-top: 0;
-  color: #333;
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
-.empty {
+.empty-state {
   text-align: center;
-  color: #999;
-  padding: 40px;
+  padding: 40px 20px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
 }
 
+.empty-state p {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+/* 记录卡片 */
 .record-card {
+  background: var(--bg-card);
   padding: 20px;
-  border-left: 4px solid #667eea;
-  background: #f8f9ff;
-  border-radius: 8px;
-  margin-bottom: 15px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.record-card:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .record-content {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
-  color: #333;
-  margin-bottom: 10px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
 }
 
 .record-meta {
   display: flex;
   justify-content: space-between;
-  color: #999;
-  font-size: 14px;
+  align-items: center;
+}
+
+.record-time {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .header-content {
+    padding: 16px;
+  }
+  
+  .main-content {
+    padding: 20px 16px;
+  }
+  
+  .calendar-grid {
+    padding: 12px;
+  }
+  
+  .day-number {
+    font-size: 13px;
+  }
+  
+  .records-indicator {
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+  }
 }
 </style>

@@ -1,24 +1,13 @@
 <script setup>
+// App.vue - 主应用入口
 </script>
 
 <template>
-  <router-view />
+  <div id="app">
+    <router-view />
+  </div>
 </template>
 
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: #f5f5f5;
-  color: #333;
-}
-
-#app {
-  min-height: 100vh;
-}
+/* 全局样式在 style.css 中定义 */
 </style>

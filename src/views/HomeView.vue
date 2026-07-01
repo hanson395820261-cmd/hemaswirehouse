@@ -1,31 +1,43 @@
 <template>
   <div class="home">
-    <header>
-      <h1>📝 随手记</h1>
-      <div class="user-info">
-        <span>{{ userName }} ({{ positionName }})</span>
-        <button @click="handleLogout" class="logout-btn">切换用户</button>
+    <!-- 顶部标题栏 -->
+    <header class="header">
+      <div class="header-content">
+        <h1 class="app-title">荷马随手记</h1>
+        <div class="user-info">
+          <span class="user-name">{{ userName }}</span>
+          <span class="user-position">{{ positionName }}</span>
+          <button @click="handleLogout" class="logout-btn">切换用户</button>
+        </div>
       </div>
     </header>
 
-    <nav class="nav-tabs">
-      <button 
-        :class="['tab', { active: currentTab === 'record' }]"
-        @click="currentTab = 'record'"
-      >
-        ✍️ 记录
-      </button>
-      <button 
-        :class="['tab', { active: currentTab === 'calendar' }]"
-        @click="router.push('/calendar')"
-      >
-        📅 日历
-      </button>
-    </nav>
+    <!-- 内容区 -->
+    <main class="main-content">
+      <!-- 标签导航 -->
+      <nav class="nav-tabs">
+        <button 
+          :class="['tab', { active: currentTab === 'record' }]"
+          @click="currentTab = 'record'"
+        >
+          记录
+        </button>
+        <button 
+          :class="['tab', { active: currentTab === 'calendar' }]"
+          @click="router.push('/calendar')"
+        >
+          日历
+        </button>
+        <button 
+          :class="['tab', { active: currentTab === 'report' }]"
+          @click="router.push('/report')"
+        >
+          报告
+        </button>
+      </nav>
 
-    <div class="content">
-      <!-- 添加记录表单 -->
-      <div class="record-form">
+      <!-- 记录表单 -->
+      <div class="record-form card">
         <textarea 
           v-model="newRecord" 
           placeholder="记录一下现在在做什么..."
@@ -33,32 +45,54 @@
           @keyup.ctrl.enter="addRecord"
         ></textarea>
         <div class="form-actions">
-          <input type="date" v-model="recordDate" />
-          <button @click="addRecord" :disabled="!newRecord.trim()">
+          <input type="date" v-model="recordDate" class="date-input" />
+          <button @click="addRecord" class="btn-primary" :disabled="!newRecord.trim()">
             添加记录
           </button>
         </div>
       </div>
 
-      <!-- 今日记录列表 -->
-      <div class="records-list">
-        <h2>{{ recordDate }} 的记录</h2>
-        <div v-if="records.length === 0" class="empty">
-          暂无记录，开始记录吧！
+      <!-- 导入导出 -->
+      <div class="import-export">
+        <button @click="exportRecords" class="btn-secondary">
+          导出记录
+        </button>
+        <button @click="triggerImport" class="btn-secondary">
+          导入记录
+        </button>
+        <input 
+          ref="fileInput" 
+          type="file" 
+          accept=".json" 
+          style="display: none"
+          @change="importRecords"
+        />
+      </div>
+
+      <!-- 记录列表 -->
+      <div class="records-section">
+        <h2 class="section-title">{{ formatDateDisplay(recordDate) }} 的记录</h2>
+        
+        <div v-if="records.length === 0" class="empty-state">
+          <p>暂无记录</p>
+          <p class="empty-hint">开始记录吧！</p>
         </div>
+        
         <div 
           v-for="record in records" 
           :key="record.id"
-          class="record-card"
+          class="record-card card"
         >
           <div class="record-content">{{ record.content }}</div>
           <div class="record-meta">
-            <span class="time">{{ formatTime(record.created_at) }}</span>
-            <button @click="deleteRecord(record.id)" class="delete-btn">删除</button>
+            <span class="record-time">{{ formatTime(record.created_at) }}</span>
+            <button @click="deleteRecord(record.id)" class="btn-danger">
+              删除
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
@@ -75,6 +109,7 @@ const records = ref([])
 const userName = ref(localStorage.getItem('userName') || '')
 const positionName = ref('')
 const userId = ref(localStorage.getItem('userId') || '')
+const fileInput = ref(null)
 
 // 检查用户是否已登录
 if (!userId.value) {
@@ -127,6 +162,7 @@ const addRecord = async () => {
   
   if (error) {
     console.error('添加记录失败:', error)
+    alert('添加失败：' + error.message)
   } else {
     newRecord.value = ''
     loadRecords()
@@ -135,7 +171,9 @@ const addRecord = async () => {
 
 // 删除记录
 const deleteRecord = async (id) => {
-  if (!confirm('确定要删除这条记录吗？')) return
+  if (!window.confirm('确定要删除这条记录吗？')) return
+  
+  console.log('正在删除记录:', id) // 调试日志
   
   const { error } = await supabase
     .from('records')
@@ -144,9 +182,90 @@ const deleteRecord = async (id) => {
   
   if (error) {
     console.error('删除记录失败:', error)
+    window.alert('删除失败：' + error.message)
   } else {
+    console.log('删除成功')
     loadRecords()
   }
+}
+
+// 导出记录
+const exportRecords = async () => {
+  const { data, error } = await supabase
+    .from('records')
+    .select('*, users(name, positions(name))')
+    .eq('user_id', userId.value)
+    .order('record_date', { ascending: true })
+  
+  if (error) {
+    console.error('导出失败:', error)
+    alert('导出失败：' + error.message)
+    return
+  }
+  
+  const exportData = {
+    version: '1.0',
+    exportDate: new Date().toISOString(),
+    user: userName.value,
+    records: data
+  }
+  
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `随手记_${userName.value}_${new Date().toISOString().split('T')[0]}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// 触发导入
+const triggerImport = () => {
+  fileInput.value.click()
+}
+
+// 导入记录
+const importRecords = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  const reader = new FileReader()
+  reader.onload = async (e) => {
+    try {
+      const importData = JSON.parse(e.target.result)
+      
+      if (!importData.records || !Array.isArray(importData.records)) {
+        alert('文件格式不正确')
+        return
+      }
+      
+      // 导入记录
+      const recordsToImport = importData.records.map(record => ({
+        user_id: userId.value,
+        content: record.content,
+        record_date: record.record_date,
+        created_at: record.created_at
+      }))
+      
+      const { error } = await supabase
+        .from('records')
+        .insert(recordsToImport)
+      
+      if (error) {
+        console.error('导入失败:', error)
+        alert('导入失败：' + error.message)
+      } else {
+        alert(`成功导入 ${recordsToImport.length} 条记录`)
+        loadRecords()
+      }
+    } catch (err) {
+      console.error('解析文件失败:', err)
+      alert('解析文件失败，请确保文件格式正确')
+    }
+  }
+  
+  reader.readAsText(file)
+  event.target.value = '' // 清空input，允许重复选择同一个文件
 }
 
 // 格式化时间
@@ -155,6 +274,22 @@ const formatTime = (datetime) => {
     hour: '2-digit', 
     minute: '2-digit' 
   })
+}
+
+// 格式化日期显示
+const formatDateDisplay = (dateStr) => {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  
+  if (dateStr === today.toISOString().split('T')[0]) {
+    return '今天'
+  } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+    return '昨天'
+  } else {
+    return dateStr
+  }
 }
 
 // 退出登录
@@ -176,148 +311,278 @@ onMounted(() => {
 
 <style scoped>
 .home {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
+  min-height: 100vh;
+  background: var(--bg-page);
 }
 
-header {
+/* 顶部标题栏 */
+.header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
 }
 
-header h1 {
-  margin: 0;
-  color: #333;
+.app-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 15px;
-  color: #666;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.user-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.user-position {
+  padding: 4px 12px;
+  background: var(--accent-light);
+  color: var(--accent-color);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .logout-btn {
-  padding: 5px 15px;
-  background: #f0f0f0;
-  border: none;
-  border-radius: 5px;
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
 }
 
 .logout-btn:hover {
-  background: #e0e0e0;
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
+/* 主内容区 */
+.main-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+/* 标签导航 */
 .nav-tabs {
   display: flex;
-  gap: 10px;
-  margin-bottom: 30px;
-  border-bottom: 2px solid #f0f0f0;
+  gap: 32px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .tab {
-  padding: 12px 24px;
+  padding: 12px 4px;
   background: none;
   border: none;
+  border-bottom: 2px solid transparent;
   cursor: pointer;
-  font-size: 16px;
-  color: #666;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--text-primary);
 }
 
 .tab.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
-  font-weight: 600;
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
 }
 
+/* 卡片样式 */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+/* 记录表单 */
 .record-form {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  margin-bottom: 30px;
+  padding: 24px;
+  margin-bottom: 20px;
 }
 
-textarea {
+.record-form textarea {
   width: 100%;
-  padding: 15px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  line-height: 1.6;
   resize: vertical;
-  box-sizing: border-box;
   font-family: inherit;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: all 0.2s;
 }
 
-textarea:focus {
+.record-form textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
 }
 
 .form-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 15px;
-  gap: 15px;
+  margin-top: 16px;
+  gap: 16px;
 }
 
-.form-actions input[type="date"] {
-  padding: 10px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+.date-input {
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   font-size: 14px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: all 0.2s;
 }
 
-.form-actions button {
-  padding: 12px 30px;
-  background: #667eea;
+.date-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+}
+
+/* 按钮样式 */
+.btn-primary {
+  padding: 10px 24px;
+  background: var(--accent-color);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
-.form-actions button:disabled {
-  background: #ccc;
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  background: var(--text-muted);
   cursor: not-allowed;
 }
 
-.records-list h2 {
-  color: #333;
+.btn-secondary {
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  background: var(--accent-light);
+}
+
+.btn-danger {
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid var(--danger-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--danger-color);
+  transition: all 0.2s;
+}
+
+.btn-danger:hover {
+  background: var(--danger-color);
+  color: white;
+}
+
+/* 导入导出 */
+.import-export {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+/* 记录列表 */
+.records-section {
+  margin-top: 8px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
-.empty {
+.empty-state {
   text-align: center;
-  color: #999;
-  padding: 40px;
-  background: #f9f9f9;
-  border-radius: 10px;
+  padding: 60px 20px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
 }
 
+.empty-state p {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.empty-hint {
+  margin-top: 8px;
+  font-size: 14px !important;
+  color: var(--text-muted) !important;
+}
+
+/* 记录卡片 */
 .record-card {
-  background: white;
   padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-  margin-bottom: 15px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.record-card:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .record-content {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
-  color: #333;
-  margin-bottom: 10px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
 }
 
 .record-meta {
@@ -326,22 +591,45 @@ textarea:focus {
   align-items: center;
 }
 
-.time {
-  color: #999;
-  font-size: 14px;
+.record-time {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
-.delete-btn {
-  padding: 5px 15px;
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.delete-btn:hover {
-  background: #ee5a5a;
+/* 响应式 */
+@media (max-width: 768px) {
+  .header-content {
+    padding: 16px;
+  }
+  
+  .app-title {
+    font-size: 20px;
+  }
+  
+  .user-info {
+    gap: 8px;
+    font-size: 13px;
+  }
+  
+  .user-position {
+    display: none;
+  }
+  
+  .main-content {
+    padding: 20px 16px;
+  }
+  
+  .nav-tabs {
+    gap: 20px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .import-export {
+    flex-direction: column;
+  }
 }
 </style>
