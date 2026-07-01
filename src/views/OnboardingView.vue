@@ -1,11 +1,10 @@
 <template>
   <div class="onboarding">
     <div class="container">
-      <h1>📝 欢迎使用随手记</h1>
-      <p class="subtitle">请设置你的岗位和名字</p>
+      <h1>荷马随手记</h1>
       
       <div class="form-group">
-        <label>选择岗位</label>
+        <label>岗位</label>
         <div class="position-list">
           <button 
             v-for="position in positions" 
@@ -19,7 +18,7 @@
         <div class="add-position">
           <input 
             v-model="newPosition" 
-            placeholder="或输入新岗位名称"
+            placeholder="或输入新岗位"
             @keyup.enter="addPosition"
           />
           <button @click="addPosition" :disabled="!newPosition">添加</button>
@@ -27,7 +26,7 @@
       </div>
 
       <div class="form-group">
-        <label>你的名字</label>
+        <label>名字</label>
         <input 
           v-model="userName" 
           placeholder="请输入你的名字"
@@ -40,7 +39,7 @@
         @click="handleSubmit"
         :disabled="!selectedPosition || !userName"
       >
-        开始使用 →
+        进入 →
       </button>
     </div>
   </div>
@@ -126,126 +125,145 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #ffffff;
   padding: 20px;
 }
 
 .container {
-  background: white;
-  border-radius: 20px;
-  padding: 40px;
-  max-width: 500px;
+  max-width: 400px;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  padding: 20px;
 }
 
 h1 {
   text-align: center;
-  color: #333;
-  margin-bottom: 10px;
-}
-
-.subtitle {
-  text-align: center;
-  color: #666;
-  margin-bottom: 30px;
+  color: #1a1a1a;
+  margin-bottom: 40px;
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: 2px;
 }
 
 .form-group {
-  margin-bottom: 25px;
+  margin-bottom: 30px;
 }
 
 label {
   display: block;
-  margin-bottom: 10px;
-  color: #333;
-  font-weight: 600;
+  margin-bottom: 12px;
+  color: #666;
+  font-weight: 400;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .position-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .position-btn {
-  padding: 10px 20px;
-  border: 2px solid #e0e0e0;
-  border-radius: 25px;
+  padding: 8px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
   background: white;
   cursor: pointer;
   transition: all 0.3s;
   font-size: 14px;
+  color: #666;
 }
 
 .position-btn:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: #1a1a1a;
+  color: #1a1a1a;
 }
 
 .position-btn.active {
-  background: #667eea;
+  background: #1a1a1a;
   color: white;
-  border-color: #667eea;
+  border-color: #1a1a1a;
 }
 
 .add-position {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .add-position input {
   flex: 1;
-  padding: 10px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  padding: 8px 0;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
   font-size: 14px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.add-position input:focus {
+  border-bottom-color: #1a1a1a;
 }
 
 .add-position button {
-  padding: 10px 20px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 8px;
+  padding: 8px 16px;
+  background: none;
+  color: #666;
+  border: 1px solid #e0e0e0;
   cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.add-position button:hover:not(:disabled) {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
 }
 
 .add-position button:disabled {
-  background: #ccc;
+  color: #ccc;
+  border-color: #f0f0f0;
   cursor: not-allowed;
 }
 
 input[type="text"] {
   width: 100%;
-  padding: 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  padding: 8px 0;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
   font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s;
   box-sizing: border-box;
+}
+
+input[type="text"]:focus {
+  border-bottom-color: #1a1a1a;
 }
 
 .submit-btn {
   width: 100%;
-  padding: 15px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 18px;
-  font-weight: 600;
+  padding: 12px;
+  background: none;
+  color: #1a1a1a;
+  border: 1px solid #1a1a1a;
   cursor: pointer;
-  transition: transform 0.2s;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  transition: all 0.3s;
+  margin-top: 20px;
 }
 
-.submit-btn:hover {
-  transform: translateY(-2px);
+.submit-btn:hover:not(:disabled) {
+  background: #1a1a1a;
+  color: white;
 }
 
 .submit-btn:disabled {
-  background: #ccc;
+  color: #ccc;
+  border-color: #e0e0e0;
   cursor: not-allowed;
-  transform: none;
 }
 </style>
